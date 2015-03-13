@@ -1,0 +1,93 @@
+#!/usr/bin/php5
+<?php
+chdir('/home/lis/public_html/devel/trader/web');
+require_once 'History.inc';
+require_once 'ChartOHLC.inc';
+$hist = new History();
+$symbols = $hist->symbols();
+$year = date('Y');
+
+array_shift($argv);  // 'wit'
+switch (array_shift($argv)) {
+	case 'add':
+		if (count($argv) != 1) {
+			echo "Usage: wit add <symbol>\n";
+			exit(1);
+		};
+		echo $hist->add($argv[0]);
+		break;
+
+	case 'list':
+		echo implode(' ', $symbols) . "\n";
+		break;
+
+	case 'rechart':
+		foreach($symbols as $symbol) {
+
+			// 1. Research 15min
+			$interval = '15min';
+			$bgColor = 0xFFFFFF;
+			$gridColor = 0xE0E0E0;
+			$majorGridColor = 0x909090;
+			$titleColor = 0x008000;
+			$upColor = $titleColor;
+			$downColor = false;
+			$borderColor = 0xFF6060;
+			$labelColor = 0x000000;
+			$volColor = 0x6060FF;
+			$width = 600;
+			$height = 300;
+			$bars = 150;
+			$fname = "charts/{$symbol}-{$interval}.png";
+			$data = $hist->get($symbol, $interval, $bars);
+			$chart = new ChartOHLC($width, $height, $bgColor, $data);
+			$chart->title("{$symbol} - {$interval} - " . date('Y/m/d', $data[count($data)-1][0]), $titleColor);
+			$chart->title("(C) {$year} imars.com but freely redistributable", $majorGridColor, true);
+			$chart->plotVolume($volColor, $borderColor, $labelColor, 40);
+			$chart->plotPriceLegends($borderColor, $labelColor, $gridColor, true, $majorGridColor);
+			$chart->plotPrice($upColor, $downColor);
+			$chart->png($fname);
+			echo "\t{$fname}\n";
+			unset($chart);
+
+			// 2. Intraday and 3-month sparklines
+			$intervals = Array('5min', 'daily');
+			foreach ($intervals as $interval) {
+				$width = 80;
+				$height = 20;
+				$bars = $width;
+				$bgColor = 0xFFFFFF;
+				$upColor = 0x008800;
+				$downColor = 0xFF0000;
+				$volColor = 0xCCCCFF;;
+				$fname = "charts/{$symbol}-{$interval}-sparkline.png";
+				$data = $hist->get($symbol, $interval, $bars);
+				$chart = new ChartOHLC($width, $height, $bgColor, $data, false, false);
+				$chart->setBarWidth(1);
+				$chart->plotVolumeBackground($volColor);
+				$chart->plotPrice($upColor, $downColor);
+				$chart->png($fname);
+				echo "\t{$fname}\n";
+				unset($chart);
+			};
+
+		};
+		break;
+
+	case 'update':
+		echo $hist->update();
+		break;
+
+	default:
+?>
+Usage:
+
+wit add <symbol>
+wit list
+wit rechart
+wit update
+<?php
+};
+
+unset($hist);
+?>
